@@ -4,8 +4,8 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import re
 import requests
-import datetime
 
+inprogress = False
 elim = 'XX'
 leagueId = 479915
 url = 'http://games.espn.com/ffl/scoreboard?leagueId=' + str(leagueId)
@@ -14,8 +14,13 @@ html = BeautifulSoup(r.text, 'html.parser')
 week = re.search('Scoreboard: Week (.+?) - Free Fantasy', html.title.string).group(1)
 outfile = 'survivor' + str(week) + '.csv'
 
+if len(html.find_all('div', {'id':re.compile("^team_livepro_")})) > 0:
+    inprogress = True
+
 score_tds = html.find_all('td', {'class':'score'})
-score_proj = html.find_all('td', {'class':'playersPlayed'})
+
+if inprogress:
+    score_proj = html.find_all('td', {'class':'playersPlayed'})
 
 def get_scores(score_td):
     score = score_td.get_text()
@@ -29,22 +34,24 @@ def get_proj(proj_td):
     projected = proj_td.find_all('div', {'id': re.compile("team_liveproj*")})[0].get_text()
     return ytp, projected
     
-scores = pd.DataFrame([get_scores(td) for td in score_tds])
-projected = pd.DataFrame([get_proj(td) for td in score_proj])
-out = pd.concat([scores, projected], axis=1, ignore_index=True)
-out.columns = ['name','abbrev','score','ytp','projected']
-out = out[out.abbrev != elim]
-
-out['score'] = out.score.astype('float')
-out['projected'] = out.projected.astype('float')
-
-d = datetime.datetime.today().weekday()
-
-if d == 1:
-    headers = ["name", "score"]
-    sortby = 'score'
+if inprogress:
+    scores = pd.DataFrame([get_scores(td) for td in score_tds])
+    projected = pd.DataFrame([get_proj(td) for td in score_proj])
+    out = pd.concat([scores, projected], axis=1, ignore_index=True)
+    out.columns = ['name','abbrev','score','ytp','projected']
 else:
+    out = pd.DataFrame([get_scores(td) for td in score_tds])
+    out.columns = ['name','abbrev','score']
+
+out = out[out.abbrev != elim]
+out['score'] = out.score.astype('float')
+
+if inprogress:
+    out['projected'] = out.projected.astype('float')
     headers = ["name", "score", "ytp"]
     sortby = 'projected'
-
+else:
+    headers = ["name", "score"]
+    sortby = 'score'
+             
 out.sort_values(by=sortby, ascending=True).to_csv(outfile, columns=headers, header=False, index=False)
