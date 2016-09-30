@@ -14,9 +14,9 @@ html = BeautifulSoup(r.text, 'html.parser')
 week = re.search('Scoreboard: Week (.+?) - Free Fantasy', html.title.string).group(1)
 outfile = 'survivor' + str(week) + '.csv'
 
-if len(html.find_all('div', {'id':re.compile("^team_livepro_")})) > 0:
+if len(html.find_all('div', {'id':re.compile("^team_liveproj_")})) > 0:
     inprogress = True
-
+    
 score_tds = html.find_all('td', {'class':'score'})
 
 if inprogress:
